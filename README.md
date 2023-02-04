@@ -14,3 +14,5 @@ Create ``ComplexNumber (a + bi)`` and ``Quaternion (a + bi + cj + dk)`` objects 
   ``obtain the conjugate or the norm of a complex number`` using the corescponding method (conjugate(), norm())<br>
   ``print the numbers`` using either the normal macro "println!("{}", n)" or with the method "cprint()"<br>
   ``etc.``<br>
+### For Quaternion:
+  ``mostly the same stuff but implemented for the case of quaternions :3``
