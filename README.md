@@ -6,7 +6,7 @@ Made for fun, maybe not the best choice for actual production (for now).
 Run ``cargo run`` on your console within the "ComplexNumbers" folder
 
 # Features
-Create ``ComplexNumber (a + bi)`` and ``Quaternion (a + bi + cj + dk)`` objects and execute different operations with them:S
+Create ``ComplexNumber (a + bi)`` and ``Quaternion (a + bi + cj + dk)`` objects and execute different operations with them
 ## Some examples:
 ### For ComplexNumber:
   ``create a complex number`` using "let n = ComplexNumber::new() (= 0 + 0i)" or the macro "let n = complex!(a, b)"<br>
