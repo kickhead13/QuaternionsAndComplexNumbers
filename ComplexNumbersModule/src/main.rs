@@ -4,9 +4,14 @@ use std::fmt::Result;
 use core::ops::Add;
 use core::ops::Sub;
 use std::ops::Mul;
+use std::ops::Div;
 
 pub fn absolute(x: f64) -> f64 {
     return if x >= 0.0 {x} else {-x};
+}
+
+trait Vectorable {
+    fn vectorify(&self) -> Vec<f64>;
 }
 
 //COMPLEX START
@@ -62,6 +67,12 @@ impl Display for ComplexNumber {
         }
         return if self.Re != 0.0 { write!(f, "{}+{}i", self.Re, self.Im)}
                 else {write!(f, "{}i", self.Im)}
+    }
+}
+
+impl Vectorable for ComplexNumber {
+    fn vectorify(&self) -> Vec<f64> {
+        return vec![self.Re, self.Im ];
     }
 }
 
@@ -167,10 +178,10 @@ macro_rules! complex {
 
 //QUATERNIONS START
 pub struct Quaternion {
-    Re: f64,
-    Im: f64,
-    Jm: f64,
-    Km: f64,
+    pub Re: f64,
+    pub Im: f64,
+    pub Jm: f64,
+    pub Km: f64,
 }
 
 macro_rules! quaternion {
@@ -265,7 +276,7 @@ impl Display for Quaternion {
                 text = format!("{}{}k", text,
                         if self.Km == absolute(self.Km) {
                             if self.Im != 0.0 || self.Re != 0.0 || self.Jm != 0.0 {"+"}else {""}}
-                           else {"-"});
+                        else {"-"});
             }
             else {
                 text = format!("{}{}{}j", text,
@@ -286,6 +297,12 @@ impl Display for Quaternion {
 impl PartialEq for Quaternion {
     fn eq(&self, other: &Quaternion) -> bool {
         return (self.Re == other.Re)&&(self.Im == other.Im)&&(self.Jm==other.Jm)&&(self.Km==other.Km);
+    }
+}
+
+impl Vectorable for Quaternion {
+    fn vectorify(&self) -> Vec<f64> {
+        return vec![self.Re, self.Im, self.Jm, self.Km];
     }
 }
 
@@ -348,11 +365,262 @@ impl Quaternion {
 }
 //QUATERNIONS END
 
+//MATRIX START
+pub struct Matrix {
+    pub height: usize,
+    pub width: usize,
+    pub data: Vec<Vec<f64>>
+}
+
+macro_rules! matrix {
+
+    ($ex:expr, $ex2:expr) => {
+        Matrix {
+            height: $ex,
+            width: $ex2,
+            data: vec![vec![0f64;$ex2];$ex]
+        }
+    };
+
+    ($ex:expr, $ex2:expr, $ex3:expr) => {
+        Matrix :: new($ex, $ex2, $ex3)
+    };
+
+}
+
+impl Display for Matrix {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        let mut temp: String = "".to_string();
+        for x in 0..self.height {
+            temp = format!("{}{:?}\n" ,temp,self.data[x]);
+        }
+        return write!(f,"{}", temp);
+    }
+}
+
+impl Add<Matrix> for Matrix {
+    type Output = Matrix;
+    fn add(self, other: Matrix) -> Matrix {
+        let mut temp = matrix!(self.height, self.width);
+        for x in 0..self.height {
+            for y in 0..self.width {
+                temp.data[x][y] = self.data[x][y] + other.data[x][y];
+            }
+        }
+        return temp;
+    }
+} 
+
+impl Sub<Matrix> for Matrix {
+    type Output = Matrix;
+    fn sub(self, other: Matrix) -> Matrix {
+        let mut temp = matrix!(self.height, self.width);
+        for x in 0..self.height {
+            for y in 0..self.width {
+                temp.data[x][y] = self.data[x][y] - other.data[x][y];
+            }
+        }
+        return temp;
+    }
+} 
+
+impl Mul<Matrix> for Matrix {
+    type Output = Matrix;
+    fn mul(self, other: Matrix) -> Matrix {
+        let mut temp = matrix!(self.height, self.width);
+        for x in 0..self.height {
+            for y in 0..self.width {
+                for k in 0..self.width {
+                    temp.data[x][y] += self.data[x][k] * other.data[k][y];
+                }
+            }
+        }
+        return temp;
+    }
+} 
+
+impl Mul<f64> for Matrix {
+    type Output = Matrix;
+    fn mul(self, other: f64) -> Matrix {
+        return self.apply(|x| {x*other});
+    }
+} 
+
+impl Mul<Matrix> for f64 {
+    type Output = Matrix;
+    fn mul(self, other:Matrix) -> Matrix {
+        return other.apply(|x| {x*self});
+    }
+}
+
+impl Div<f64> for Matrix {
+    type Output = Matrix;
+    fn div(self, other: f64) -> Matrix {
+        return self.apply(|x| {x/other});
+    }
+}
+
+impl PartialEq for Matrix {
+    fn eq(&self, other: &Matrix) -> bool {
+        if self.height != other.height || self.width != other.width {
+            return false;
+        }
+        for x in 0..self.height {
+            for y in 0..self.width {
+                if self.data[x as usize][y as usize] != other.data[x as usize][y as usize] {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+}
+
+impl Matrix {
+    fn new(height: usize, width: usize, this: Vec<Vec<f64>>) -> Self {
+        if this.len() > height || this[0].len() > width {
+            return matrix!(height, width);
+        }
+        
+        let mut temp: Vec<Vec<f64>> = this;
+        while temp.len() < height{
+            temp.push(vec![0.0;width]);
+        }
+        
+        Self {
+            height: height,
+            width: width,
+            data: temp
+        }
+    }
+
+    fn identitymat(height: usize) -> Self {
+        let mut temp: Self = matrix!(height, height);
+        for x in 0..height {
+            for y in 0..height {
+                if x == y {
+                    temp.data[x as usize][y as usize] = 1.0;
+                }
+            }
+        }
+        return temp;
+    }
+
+    fn minor(&self, i: usize, j: usize) -> Self {
+        let mut minor: Self = matrix!(self.height-1,
+                                        self.width-1);
+        let mut it: usize = 0;
+        let mut jt: usize = 0;
+        for x in 0..self.height {
+            jt = 0;
+            for y in 0..self.width {
+                if x != i && y != j {
+                    minor.data[if it > i.into() {it-1} else{it}]
+                         [if jt > j.into() {jt-1} else{jt}] =
+                         self.data[x as usize][y as usize];
+                }
+                jt += 1;
+            }
+            it += 1;
+        }
+        return minor;
+    }
+
+    fn det(&self) -> f64 {
+        if self.height == 1 {return self.data[0][0];}
+        if self.height == 2 {
+            return self.data[0][0]*self.data[1][1] -
+                    self.data[1][0]*self.data[0][1];
+        }
+        let mut sum: f64 = 0.0;
+        for x in 0..self.width {
+            if self.data[0][x as usize] != 0.0 {
+                sum += self.data[0][x as usize] *
+                    (if (x + 2) % 2 == 0 {1.0} else {-1.0}) *
+                    self.minor(0,x).det();
+            }
+        }
+        return sum;
+    }
+
+    fn trans(&self) -> Self {
+       let mut trans: Self = matrix!(self.width,self.height);
+        for x in 0..self.height {
+            for y in 0..self.width {
+                trans.data[y as usize][x as usize] =
+                    self.data[x as usize][y as usize];
+            }
+        }
+        return trans;
+    }
+
+    fn inverse(&self) -> Option<Self>{
+        //returns the inverse multiplied by the determinant of the original
+        let mut star: Self = self.trans();
+        let mut detM = self.det();
+        if detM != 0 as f64 {
+            for x in 0..self.height {
+                for y in 0..self.width {
+                    star.data[x as usize][y as usize] =
+                        (if (x+y+2)%2 == 0 {1.0} else {-1.0}) *
+                        self.trans().minor(x,y).det() / detM;
+                }
+            }
+            return Some(star);
+        }
+        return None;
+    }
+
+    fn apply(&self, f: impl Fn(f64) -> f64) -> Self {
+        let mut temp = matrix!(self.height, self.width);
+        for x in 0..temp.width {
+            for y in 0..temp.height {
+                temp.data[x as usize][y as usize] = f(self.data[x as usize][y as usize]);
+            }
+        }
+        return temp;
+    }
+
+    fn correct(&mut self) {
+        self.data.iter().for_each(|v| {v.iter().for_each(|w| {
+            let mut x = w.floor();
+            if *w - x > 0.999999 {
+                w.round();
+            }
+            if *w > 0.0 && *w < 0.00001 {
+               w.round();
+            }
+            if *w < 0.0 && *w > -0.00001 {
+                w.round();
+            }
+        })})
+    }
+
+    fn clone(&self) -> Self {
+        return matrix!(self.height, self.width, self.data.clone());
+    }
+
+}
+//MATRIX END
 
 fn main() {
     let n = quaternion!(-2,-2,-3.324,4);
     println!("{} * {} * {} = {}", Quaternion::newi().apply(|x| {x*-1.0}), Quaternion::newj(), Quaternion::newk(),
         (Quaternion::newi().apply(|x| {x*-1.0}))*Quaternion::newj()*Quaternion::newk());
 
-    println!("{}",n.conjugate() * n)
-}
+    let mut mat = matrix!(5,5);
+
+    mat.data = vec![vec![2.0, 1.0, 1.0, 0.0, 4.0],
+    vec![6.0, 3.0, 0.0, 0.0, 4.0],
+    vec![6.0, 3.0, 1.0, 3.0, 4.0],
+    vec![2.0, 1.0, 0.0, 1.0, 4.0],
+    vec![4.0, 3.0, 0.0, 2.0, 3.0]];
+    
+    let mut temp = matrix!(mat.height, mat.width, mat.data.clone());
+    if let Some(a) = temp.clone().inverse() {
+        println!("{}", temp*a == Matrix::identitymat(mat.height));
+    }
+
+    
+    //mat.trans().data.iter().for_each(|v|{println!("{:?}", v)});
+ }
