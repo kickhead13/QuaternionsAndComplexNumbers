@@ -1,3 +1,4 @@
+#![allow(dead_code,non_snake_case)]
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result;
@@ -5,19 +6,126 @@ use core::ops::Add;
 use core::ops::Sub;
 use std::ops::Mul;
 use std::ops::Div;
+use std::fmt::Debug;
+use std::ops::AddAssign;
+
 
 pub fn absolute(x: f64) -> f64 {
     return if x >= 0.0 {x} else {-x};
 }
 
-trait Vectorable {
+pub fn max(x: f64, y: f64) -> usize {
+    return if x >= y {x as usize} else {y as usize};
+}
+
+pub fn min(x: f64, y: f64) -> usize {
+    return if x <= y {x as usize} else {y as usize};
+}
+
+
+//SOME TRAITS WE'RE GONNA NEED
+pub trait Vectorable {
     fn vectorify(&self) -> Vec<f64>;
 }
+
+pub trait Zero {
+    fn zero() -> Self;
+}
+
+pub trait One {
+    fn one() -> Self;
+}
+//TRAITS END
+
+
+//SOME TRAIT IMPLEMENTATIONS (First for Zero trait and then for One trait)
+impl Zero for f64 {
+    fn zero() -> f64 {
+        0.0
+    }
+}
+impl Zero for f32 {
+    fn zero() -> f32 {
+        0.0
+    }
+}
+impl Zero for i32 {
+    fn zero() -> i32 {
+        0.0 as i32
+    }
+}
+impl Zero for i64 {
+    fn zero() -> i64 {
+        0.0 as i64
+    }
+}
+impl Zero for u32 {
+    fn zero() -> u32 {
+        0.0 as u32
+    }
+}
+impl Zero for u64 {
+    fn zero() -> u64 {
+        0.0 as u64
+    }
+}
+impl Zero for usize {
+    fn zero() -> usize {
+        0.0 as usize
+    }
+}
+
+impl One for f64 {
+    fn one() -> f64 {
+        1.0
+    }
+}
+impl One for f32 {
+    fn one() -> f32 {
+        1.0
+    }
+}
+impl One for i32 {
+    fn one() -> i32 {
+        1.0 as i32
+    }
+}
+impl One for i64 {
+    fn one() -> i64 {
+        1.0 as i64
+    }
+}
+impl One for u32 {
+    fn one() -> u32 {
+        1.0 as u32
+    }
+}
+impl One for u64 {
+    fn one() -> u64 {
+        1.0 as u64
+    }
+}
+impl One for usize {
+    fn one() -> usize {
+        1.0 as usize
+    }
+}
+//TRAIT IMPLEMENTATION END
+
 
 //COMPLEX START
 pub struct ComplexNumber {
     pub Re: f64,
     pub Im: f64
+}
+
+macro_rules! complex {
+    ($ex: expr, $ex2: expr) => {
+        ComplexNumber {
+            Re: $ex as f64,
+            Im: $ex2 as f64
+        }
+    }
 }
 
 impl PartialEq for ComplexNumber {
@@ -26,20 +134,61 @@ impl PartialEq for ComplexNumber {
     }
 }
 
+impl Copy for ComplexNumber {
+}
+
+impl Clone for ComplexNumber {
+    fn clone(&self) -> Self {
+        Self {
+            Re: self.Re,
+            Im: self.Im
+        }
+    }
+}
+
 impl Add<ComplexNumber> for ComplexNumber {
     type Output = ComplexNumber;
     fn add(self, other: ComplexNumber) -> ComplexNumber {
-     ComplexNumber {
+        ComplexNumber {
             Re: self.Re + other.Re,
             Im: self.Im + other.Im,
         }
     }
 }
 
+impl Add<ComplexNumber> for f64 {
+    type Output = ComplexNumber;
+    fn add(self, other: ComplexNumber) -> ComplexNumber {
+        ComplexNumber {
+            Re: self + other.Re,
+            Im: other.Im,
+        }
+    }
+}
+
+impl Add<f64> for ComplexNumber {
+    type Output = ComplexNumber;
+    fn add(self, other: f64) -> ComplexNumber {
+        ComplexNumber {
+            Re: other + self.Re,
+            Im: self.Im,
+        }
+    }
+}
+
+impl AddAssign for ComplexNumber {
+    fn add_assign(&mut self, other: ComplexNumber) -> () {
+        *self = ComplexNumber {
+            Re: self.Re + other.Re,
+            Im: self.Im + other.Im
+        };
+    }
+}
+
 impl Sub<ComplexNumber> for ComplexNumber {
     type Output = ComplexNumber;
     fn sub(self, other: ComplexNumber) -> ComplexNumber {
-     ComplexNumber {
+        ComplexNumber {
             Re: self.Re - other.Re,
             Im: self.Im - other.Im,
         }
@@ -56,17 +205,60 @@ impl Mul<ComplexNumber> for ComplexNumber {
     }
 }
 
+impl Div<ComplexNumber> for ComplexNumber {
+    type Output = ComplexNumber;
+    fn div(self, other: ComplexNumber) -> ComplexNumber {
+        let mut temp: Self = (self * other.conjugate()).apply(|x: f64| {x/(other.Re.powi(2) + other.Im.powi(2))});
+        return Self {
+            Re: temp.Re,
+            Im: temp.Im
+        };
+    }
+}
+
+impl Default for ComplexNumber {
+    fn default() -> Self {
+        complex!(0,1)
+    }
+} 
+
+impl Zero for ComplexNumber {
+    fn zero() -> Self {
+        complex!(0,0)
+    }
+}
+
 impl Display for ComplexNumber {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        if self.Im < 0.0 {
-            return if self.Re != 0.0 {write!(f, "{}-{}i", self.Re, absolute(self.Im))}
-                    else {write!(f, "{}i",self.Im)};
+        let mut text = format!("");
+        if self.Re != 0.0 || self.Im == 0.0 {
+            text = format!("{}",self.Re);
         }
-        if self.Im == 0.0 {
-            return write!(f, "{}", self.Re);
+        if self.Im != 0.0 {
+            text = format!("{}{}{}i",text,
+                if self.Re != 0.0 {if self.Im > 0.0{"+"}else {"-"}}
+                else {if self.Im > 0.0{""}else {"-"}} ,
+                if absolute(self.Im) != 1.0 {absolute(self.Im).to_string()}
+                else {"".to_string()});
         }
-        return if self.Re != 0.0 { write!(f, "{}+{}i", self.Re, self.Im)}
-                else {write!(f, "{}i", self.Im)}
+        write!(f, "{}", text)
+    }
+}
+
+impl Debug for ComplexNumber {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        let mut text = format!("");
+        if self.Re != 0.0 || self.Im == 0.0 {
+            text = format!("{}",self.Re);
+        }
+        if self.Im != 0.0 {
+            text = format!("{}{}{}i",text,
+                if self.Re != 0.0 {if self.Im > 0.0{"+"}else {"-"}}
+                else {if self.Im > 0.0{""}else {"-"}} ,
+                if absolute(self.Im) != 1.0 {absolute(self.Im).to_string()}
+                else {"".to_string()});
+        }
+        write!(f, "{}", text)
     }
 }
 
@@ -165,15 +357,6 @@ impl ComplexNumber {
     }
 
 }
-
-macro_rules! complex {
-    ($ex: expr, $ex2: expr) => {
-        ComplexNumber {
-            Re: $ex as f64,
-            Im: $ex2 as f64
-        }
-    }
-}
 //COMPLEX END
 
 //QUATERNIONS START
@@ -204,6 +387,42 @@ impl Add<Quaternion> for Quaternion {
             Jm: self.Jm + other.Jm,
             Km: self.Km + other.Km,
         }
+    }
+}
+
+impl Add<f64> for Quaternion {
+    type Output = Quaternion;
+    fn add(self, other:f64) -> Quaternion {
+        return Quaternion {
+            Re: self.Re + other,
+            Im: self.Im,
+            Jm: self.Jm,
+            Km: self.Km,
+        }
+    }
+}
+
+impl Add<Quaternion> for f64 {
+    type Output = Quaternion;
+    fn add(self, other:Quaternion) -> Quaternion {
+        return Quaternion {
+            Re: other.Re + self,
+            Im: other.Im,
+            Jm: other.Jm,
+            Km: other.Km,
+        }
+    }
+}
+
+impl AddAssign for Quaternion {
+
+    fn add_assign(&mut self, other: Quaternion) -> () {
+        *self = Quaternion {
+            Re: self.Re + other.Re,
+            Im: self.Im + other.Im,
+            Jm: self.Jm + other.Jm,
+            Km: self.Km + other.Km,
+        };
     }
 }
 
@@ -239,10 +458,22 @@ impl Clone for Quaternion {
     }
 }
 
+impl Default for Quaternion {
+    fn default() -> Self {
+        quaternion!(0,1,1,1)
+    }
+}
+
+impl Zero for Quaternion {
+    fn zero() -> Self {
+        quaternion!(0,0,0,0)
+    }
+}
+
 impl Display for Quaternion {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         let mut text: String = format!("");
-        if self.Re != 0.0 {
+        if self.Re != 0.0 || (self.Im == 0.0 && self.Jm == 0.0 && self.Km == 0.0) {
             text = format!("{}", self.Re);
         }
         if self.Im != 0.0 {
@@ -285,12 +516,56 @@ impl Display for Quaternion {
             }
         }
         return write!(f, "{}", text);
-        //return write!(f,"{}{}{}i{}{}j{}{}k", self.Re, if self.Im == absolute(self.Im) {"+"} else {"-"},
-         //                                           absolute(self.Im), 
-         //                                           if self.Jm == absolute(self.Jm) {"+"} else {"-"},
-         //                                           absolute(self.Jm), 
-         //                                           if self.Km == absolute(self.Km) {"+"}  else {"-"},
-          //                                          absolute(self.Km));
+    }
+}
+
+
+impl Debug for Quaternion {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        let mut text: String = format!("");
+        if self.Re != 0.0 || (self.Im == 0.0 && self.Jm == 0.0 && self.Km == 0.0) {
+            text = format!("{}", self.Re);
+        }
+        if self.Im != 0.0 {
+            if self.Im == 1.0 || self.Im == -1.0  {
+                text = format!("{}{}i", text,
+                        if self.Im == absolute(self.Im) {
+                            if self.Re != 0.0 {"+"}else {""}}
+                        else {"-"});
+            }
+            else {
+                text = format!("{}{}{}i", text,
+                        if self.Im == absolute(self.Im) {"+"} else {"-"},
+                        absolute(self.Im));
+            }
+        }
+        if self.Jm != 0.0 {
+            if self.Jm == 1.0 || self.Jm == -1.0 {
+                text = format!("{}{}j", text,
+                        if self.Jm == absolute(self.Jm) {
+                            if self.Im != 0.0 || self.Re != 0.0 {"+"}else {""}}
+                        else {"-"});
+            }
+            else {
+                text = format!("{}{}{}j", text,
+                        if self.Jm == absolute(self.Jm) {"+"} else {"-"},
+                        absolute(self.Jm));
+            }
+        }
+        if self.Km != 0.0 {
+            if self.Km == 1.0 || self.Km == -1.0 {
+                text = format!("{}{}k", text,
+                        if self.Km == absolute(self.Km) {
+                            if self.Im != 0.0 || self.Re != 0.0 || self.Jm != 0.0 {"+"}else {""}}
+                        else {"-"});
+            }
+            else {
+                text = format!("{}{}{}j", text,
+                        if self.Km == absolute(self.Km) {"+"} else {"-"},
+                        absolute(self.Km));
+            }
+        }
+        return write!(f, "{}", text);
     }
 }
 
@@ -557,13 +832,13 @@ impl Matrix {
     fn inverse(&self) -> Option<Self>{
         //returns the inverse multiplied by the determinant of the original
         let mut star: Self = self.trans();
-        let mut detM = self.det();
-        if detM != 0 as f64 {
+        let det_m = self.det();
+        if det_m != 0 as f64 {
             for x in 0..self.height {
                 for y in 0..self.width {
                     star.data[x as usize][y as usize] =
                         (if (x+y+2)%2 == 0 {1.0} else {-1.0}) *
-                        self.trans().minor(x,y).det() / detM;
+                        self.trans().minor(x,y).det() / det_m;
                 }
             }
             return Some(star);
@@ -582,18 +857,45 @@ impl Matrix {
     }
 
     fn correct(&mut self) {
-        self.data.iter().for_each(|v| {v.iter().for_each(|w| {
-            let mut x = w.floor();
-            if *w - x > 0.999999 {
-                w.round();
+        for x in 0..self.height {
+            for y in 0..self.width {
+                let elem = self.data[x as usize][y as usize];
+                let mut flem = self.data[x as usize][y as usize].floor();
+                if elem - flem > 0.999999 {
+                    self.data[x as usize][y as usize] =  elem.round();
+                }
+                if  elem > 0.0 && elem < 0.00001 {
+                    self.data[x as usize][y as usize] =  elem.round();
+                }
+                if  elem  < 0.0 &&  elem  > -0.00001 {
+                    self.data[x as usize][y as usize] =  elem.round();
+                }
             }
-            if *w > 0.0 && *w < 0.00001 {
-               w.round();
-            }
-            if *w < 0.0 && *w > -0.00001 {
-                w.round();
-            }
-        })})
+        }
+    }
+
+    fn replace_collumn_with(&self, collumn: usize, new_collumn: Vec<f64>) -> Self {
+        let mut temp = self.data.clone();
+        for row in 0..min(temp.len() as f64, new_collumn.len() as f64) {
+            temp[row as usize][collumn as usize] = new_collumn[row as usize];
+        }
+        return Self {
+            height: self.height,
+            width: self.width,
+            data: temp
+        };
+    }
+
+    fn replace_line_with(&self, line: usize, new_line: Vec<f64>) -> Self {
+        let mut temp = self.data.clone();
+        for col in 0..min(temp[0].len() as f64, new_line.len() as f64) {
+            temp[line as usize][col as usize] = new_line[col as usize];
+        }
+        return Self {
+            height: self.height,
+            width: self.width,
+            data: temp
+        };
     }
 
     fn clone(&self) -> Self {
@@ -603,24 +905,125 @@ impl Matrix {
 }
 //MATRIX END
 
-fn main() {
-    let n = quaternion!(-2,-2,-3.324,4);
-    println!("{} * {} * {} = {}", Quaternion::newi().apply(|x| {x*-1.0}), Quaternion::newj(), Quaternion::newk(),
-        (Quaternion::newi().apply(|x| {x*-1.0}))*Quaternion::newj()*Quaternion::newk());
+//GOOD MATRIX START
 
-    let mut mat = matrix!(5,5);
+pub struct Matrice<T> {
+    pub height: usize,
+    pub width: usize,
+    pub data: Vec<Vec<T>>
+}
 
-    mat.data = vec![vec![2.0, 1.0, 1.0, 0.0, 4.0],
-    vec![6.0, 3.0, 0.0, 0.0, 4.0],
-    vec![6.0, 3.0, 1.0, 3.0, 4.0],
-    vec![2.0, 1.0, 0.0, 1.0, 4.0],
-    vec![4.0, 3.0, 0.0, 2.0, 3.0]];
-    
-    let mut temp = matrix!(mat.height, mat.width, mat.data.clone());
-    if let Some(a) = temp.clone().inverse() {
-        println!("{}", temp*a == Matrix::identitymat(mat.height));
+/*macro_rules!  matrice {
+    ($ex1:expr, $ex2:expr) => {
+        Matrice<f64> {
+            height: $ex1,
+            width: $ex2,
+            data: vec![vec![0.0;$ex1];$ex2];
+        }
+    };
+
+    ($t:ty, $ex1:expr, $ex2:expr) => {
+        Matrice::<$t> {
+            height: $ex1,
+            width: $ex2,
+            data: vec![vec![($t)::default();$ex1];$ex2]
+        }
+    }
+}*/
+
+impl<T: Display + Default + std::clone::Clone + Copy + Debug + Add + Add<Output = T> + Mul + Mul<Output = T> + Zero + PartialEq + Sub<Output = T>> Add<Matrice<T>> for Matrice<T> {
+    type Output = Matrice<T>;
+    fn add(self, other: Matrice<T>) -> Matrice<T> {
+        let mut temp = Matrice::<T>::new(self.height, self.width);
+        for x in 0..temp.height {
+            for y in 0..temp.width {
+                temp.data[x as usize][y as usize] = 
+                    self.data[x as usize][y as usize] +
+                    other.data[x as usize][y as usize];
+            }
+        }
+        return temp;
+    } 
+}
+
+impl<T: Display + Default + std::clone::Clone + Copy + Debug + Add + Add<Output = T> + Mul + Mul<Output = T> + Zero + PartialEq + Sub<Output = T>> Display for Matrice<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        let mut text = format!("{:?}", self.data[0usize]);
+        for x in 1..self.height {
+            text = format!("{}\n{:?}", text, self.data[x as usize]);
+        }
+        write!(f,"{}", text)
+    }
+}
+
+impl<T: Display + Default + std::clone::Clone + Copy + Debug + Add + Add<Output = T> + Mul + Mul<Output = T> + Zero + PartialEq + Sub<Output = T>>  Matrice<T> {
+    fn new(height:usize, width:usize) -> Self {
+        Self {
+            height: height,
+            width: width,
+            data: vec![vec![T::default();width];height]
+        }
     }
 
-    
+    fn new_zero(height:usize, width:usize) -> Self {
+        Self {
+            height: height,
+            width: width,
+            data: vec![vec![T::zero();width];height]
+        }
+    }
+
+    fn minor(&self, i: usize, j: usize) -> Self {
+        let mut minor: Self = Self::new_zero(self.height-1,
+                                        self.width-1);
+        let mut it: usize = 0;
+        let mut jt: usize = 0;
+        for x in 0..self.height {
+            jt = 0;
+            for y in 0..self.width {
+                if x != i && y != j {
+                    minor.data[if it > i.into() {it-1} else{it}]
+                         [if jt > j.into() {jt-1} else{jt}] =
+                         self.data[x as usize][y as usize];
+                }
+                jt += 1;
+            }
+            it += 1;
+        }
+        return minor;
+    }
+
+    fn det(&self) -> T {
+        todo!()
+    }
+
+    fn printm(&self) -> () {
+        self.data.iter().for_each(|v|{println!("{:?}",v)});
+    }
+}
+
+//GOOD MATRIX END
+
+
+fn main() {
+    let n = quaternion!(-2,-2,-3.324,4);
+    println!(" Quaternions demonstration: {} * {} * {} = {}", Quaternion::newi().apply(|x| {x*-1.0}), Quaternion::newj(), Quaternion::newk(),
+        (Quaternion::newi().apply(|x| {x*-1.0}))*Quaternion::newj()*Quaternion::newk());
+    println!(" Complex numbers demonstration: {} * {} = {}", ComplexNumber::i().apply(|x| {x*-1.0}), ComplexNumber::i(),
+        (ComplexNumber::i().apply(|x| {x*-1.0}))*ComplexNumber::i());
+
+    let mut mat: Matrice<ComplexNumber>  = Matrice::<ComplexNumber>::new(8, 8);
+    println!(" Default <ComplexNumber> Matrix of size 4x4 :\n{}\n", Matrice::<ComplexNumber>::new(4, 4));
+    println!(" Default <Quaternion> Matrix of size 4x4 :\n{}\n", Matrice::<Quaternion>::new(4, 4));
+    println!(" Default <f64> Matrix of size 4x4 :\n{}\n", Matrice::<f64>::new(4, 4));
+    println!(" Default <i32> Matrix of size 4x4 :\n{}\n", Matrice::<i32>::new(4, 4));
+    //let mut temp = matrix!(mat.height, mat.width, mat.data.clone());
+    //if let Some(a) = temp.clone().inverse() {
+    //    println!("{}", a*temp);
+    //}
+
+    println!("{} / {} = {}", complex!(12, 13), complex!(0, 3), (complex!(12, 13)/complex!(0, 3)));
+
+    println!("{}", quaternion!(0,0,0,0));
     //mat.trans().data.iter().for_each(|v|{println!("{:?}", v)});
  }
